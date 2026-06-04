@@ -8,7 +8,7 @@ This project allows an ESP32 to act as a hardware signer for Solana transactions
 
 ## UI Preview
 
-![ESP32 Solana Wallet UI](./assets/ui.png)
+![ESP32 Solana Wallet UI](./ui.png)
 
 # Features
 
