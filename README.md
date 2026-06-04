@@ -6,6 +6,10 @@ This project allows an ESP32 to act as a hardware signer for Solana transactions
 
 ---
 
+## UI Preview
+
+![ESP32 Solana Wallet UI](./assets/ui.png)
+
 # Features
 
 * RFID-based transaction approval
