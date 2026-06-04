@@ -1,0 +1,80 @@
+# =========================
+# Python / Flask
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+venv/
+.env
+.env.local
+.env.*.local
+
+instance/
+*.sqlite3
+
+# Flask cache
+*.log
+
+# =========================
+# Solana / Crypto secrets
+# =========================
+*.key
+*.pem
+*.json
+
+wallet.*
+keypair.*
+private_key.*
+
+# =========================
+# ESP32 / Arduino build files
+# =========================
+*.elf
+*.bin
+*.hex
+
+build/
+build-*/
+*.o
+*.d
+
+# Arduino IDE cache
+*.arduino15/
+*.cache/
+
+# ESP32 compiled output
+*.partitions.bin
+*.bootloader.bin
+
+# =========================
+# Arduino libraries (optional local installs)
+# =========================
+libraries/
+
+# =========================
+# VSCode / IDE
+# =========================
+.vscode/
+.idea/
+*.code-workspace
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# VirtualBox / USB dev noise (optional)
+# =========================
+*.log
+VBoxSVC.log
+
+# =========================
+# Node (if you ever add frontend tooling)
+# =========================
+node_modules/
+dist/
+.next/

@@ -1,0 +1,477 @@
+
+<head>
+  <meta charset="UTF-8">
+
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}"
+  >
+</head>
+<!-- <style>
+
+</style> -->
+
+<div class="scanlines"></div>
+<div class="grid-bg"></div>
+
+<div class="wrap">
+  <div class="header">
+    <div class="logo">◎</div>
+    <div class="header-text">
+      <h1>SOLANA<br>WALLET
+      <p>RFID-SIGNED · ESP32 · v1.0</p>
+      </h1>
+    </div>
+  </div>
+
+  <div class="pbox balance-card">
+    <div class="balance-label"><span class="pulse-dot"></span>&nbsp;LIVE BALANCE</div>
+    <div class="balance-value" id="balance">--------</div>
+    <div class="balance-sub" id="balance-sub">FETCHING ON-CHAIN DATA...</div>
+  </div>
+
+  <div class="pbox action-card">
+  <div class="action-grid">
+    <button type="button" class="action-btn active" id="sendTab">
+      <span class="action-icon">↑</span>
+      <span>SEND</span>
+    </button>
+
+    <button type="button" class="action-btn" id="receiveTab">
+      <span class="action-icon">↓</span>
+      <span>RECEIVE</span>
+    </button>
+
+    <button type="button" class="action-btn" id="activityTab">
+      <span class="action-icon">▣</span>
+      <span>ACTIVITY</span>
+    </button>
+  </div>
+</div>
+
+  <div class="pbox form-card">
+    <form id="txForm" novalidate>
+      <div class="field">
+        <label>Recipient Wallet</label>
+        <div class="wallet-wrap">
+          <input type="text" name="recipient" id="recipientInput"
+            placeholder="Enter Solana address..." autocomplete="off" spellcheck="false">
+          <span class="wallet-status-icon" id="walletIcon"></span>
+        </div>
+        <div class="wallet-hint neutral" id="walletHint">BASE-58 · 32–44 CHARS</div>
+      </div>
+
+     <div class="field">
+  <label>Token</label>
+
+  <select id="tokenSelect" name="token">
+    <option value="SOL">SOL</option>
+    <!-- <option value="USDC">USDC</option>
+    <option value="BONK">BONK</option> -->
+  </select>
+</div>
+
+<div class="field">
+  <label>Amount</label>
+
+  <div class="amount-wrap">
+    <input
+      type="number"
+      step="0.0001"
+      name="amount"
+      id="amountInput"
+      placeholder="0.0000"
+    >
+  </div>
+
+  <div class="presets">
+    <button type="button" class="preset" data-val="0.1">0.1</button>
+    <button type="button" class="preset" data-val="0.5">0.5</button>
+    <button type="button" class="preset" data-val="1">1.0</button>
+
+    <button type="button" class="preset max-preset" id="maxBtn">
+      MAX
+    </button>
+  </div>
+</div>
+
+      <button class="send-btn" id="submitBtn" type="submit">
+        <div class="btn-inner">
+          <span id="btnText">SEND TRANSACTION</span>
+          <span class="btn-arrow">▶</span>
+        </div>
+      </button>
+    </form>
+
+  </div>
+      <div class="pbox receive-card hidden-panel" id="receivePanel">
+  <div class="receive-title">WALLET ADDRESS</div>
+
+  <div class="receive-address" id="walletAddress">
+    oggYcXGKBcEWB25SiRfBd6iCHE6dB6xkB2bzgfkxdTc
+  </div>
+
+  <button class="copy-btn" id="copyBtn">
+    COPY ADDRESS
+  </button>
+</div>
+
+<div class="pbox activity-card hidden-panel" id="activityPanel">
+  <div class="activity-title">RECENT ACTIVITY</div>
+
+  <div class="activity-list" id="activityList">
+  LOADING...
+</div>
+</div>
+
+  <div id="status"></div>
+</div>
+
+<script>
+const form = document.getElementById('txForm');
+const statusDiv = document.getElementById('status');
+const submitBtn = document.getElementById('submitBtn');
+const amountInput = document.getElementById('amountInput');
+const recipientInput = document.getElementById('recipientInput');
+const walletIcon = document.getElementById('walletIcon');
+const walletHint = document.getElementById('walletHint');
+const presets = document.querySelectorAll('.preset');
+
+const SOL_ADDR = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+function validateAddress(val) {
+  if (!val) return 'empty';
+  if (SOL_ADDR.test(val.trim())) return 'valid';
+  if (val.length < 32) return 'short';
+  if (val.length > 44) return 'long';
+  return 'chars';
+}
+
+const HINTS = {
+  empty: { text: 'BASE-58 · 32–44 CHARS', cls: 'neutral' },
+  valid: { text: '✓ VALID SOLANA ADDRESS', cls: 'ok' },
+  short: { text: '✗ ADDRESS TOO SHORT', cls: 'bad' },
+  long:  { text: '✗ ADDRESS TOO LONG', cls: 'bad' },
+  chars: { text: '✗ INVALID CHARACTERS (NO 0, O, I, l)', cls: 'bad' },
+};
+
+let touched = false;
+
+recipientInput.addEventListener('input', () => {
+  const val = recipientInput.value;
+  if (!touched && val.length > 0) touched = true;
+  if (!touched) return;
+
+  const state = validateAddress(val);
+  const hint = HINTS[state];
+
+  walletHint.textContent = hint.text;
+  walletHint.className = 'wallet-hint ' + hint.cls;
+
+  walletIcon.className = 'wallet-status-icon show ' + (state === 'valid' ? 'ok' : (state === 'empty' ? '' : 'bad'));
+  walletIcon.textContent = state === 'valid' ? '✓' : (state === 'empty' ? '' : '✗');
+
+  recipientInput.classList.remove('valid', 'invalid');
+  if (state === 'valid') recipientInput.classList.add('valid');
+  else if (state !== 'empty') recipientInput.classList.add('invalid');
+});
+
+recipientInput.addEventListener('blur', () => {
+  touched = true;
+  recipientInput.dispatchEvent(new Event('input'));
+});
+
+presets.forEach(btn => {
+  btn.addEventListener('click', () => {
+    amountInput.value = btn.dataset.val;
+    presets.forEach(b => b.classList.remove('active', 'popping'));
+    btn.classList.add('active', 'popping');
+    btn.addEventListener('animationend', () => btn.classList.remove('popping'), { once: true });
+  });
+});
+
+amountInput.addEventListener('input', () => {
+  const v = parseFloat(amountInput.value);
+  presets.forEach(btn => {
+    btn.classList.toggle('active', Math.abs(parseFloat(btn.dataset.val) - v) < 0.000001);
+  });
+});
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  touched = true;
+  recipientInput.dispatchEvent(new Event('input'));
+
+  const addrState = validateAddress(recipientInput.value);
+  if (addrState !== 'valid') {
+    recipientInput.classList.add('invalid');
+    recipientInput.focus();
+    statusDiv.innerHTML = `
+      <div class="status-box">
+        <div class="status-error">
+          <div class="error-label">✗ &nbsp;INVALID ADDRESS</div>
+          <div class="error-msg">PLEASE ENTER A VALID SOLANA WALLET ADDRESS BEFORE SENDING.</div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  if (!amountInput.value || parseFloat(amountInput.value) <= 0) {
+    amountInput.focus();
+    statusDiv.innerHTML = `
+      <div class="status-box">
+        <div class="status-error">
+          <div class="error-label">✗ &nbsp;INVALID AMOUNT</div>
+          <div class="error-msg">PLEASE ENTER A VALID AMOUNT GREATER THAN 0.</div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  submitBtn.disabled = true;
+  document.getElementById('btnText').textContent = 'SENDING...';
+  statusDiv.innerHTML = '';
+
+  statusDiv.innerHTML = `
+    <div class="status-box">
+      <div class="status-waiting">
+        <div class="sw-label"><span class="pulse-dot"></span>&nbsp;AWAITING RFID</div>
+        <div class="scanner"><div class="scanner-line"></div></div>
+        <div class="sw-desc">HOLD YOUR TAG NEAR THE ESP32 TO SIGN</div>
+        <div class="rfid-icon">
+          <div class="rfid-rings">
+            <div class="rfid-ring"></div>
+            <div class="rfid-ring"></div>
+            <div class="rfid-ring"></div>
+          </div>
+          <span class="rfid-text">SCANNING FOR TAG...</span>
+        </div>
+      </div>
+    </div>`;
+
+  try {
+    const res = await fetch('/send', { method: 'POST', body: new FormData(form) });
+    const data = await res.json();
+    if (data.success) {
+  statusDiv.innerHTML = `
+    <div class="status-box">
+      <div class="status-success">
+        <div class="success-icon">✓</div>
+
+        <div class="success-label">
+          TX CONFIRMED
+        </div>
+
+        <div class="success-msg">
+          TRANSACTION SENT SUCCESSFULLY!
+        </div>
+
+        <div class="sig-wrap">
+          <div class="sig-key">
+            SIGNATURE
+          </div>
+
+          <a
+            href="https://explorer.solana.com/tx/${data.tx_signature}?cluster=devnet"
+            target="_blank"
+            class="sig-link"
+          >
+            ${data.tx_signature}
+          </a>
+        </div>
+      </div>
+    </div>`;
+} else {
+      statusDiv.innerHTML = `
+        <div class="status-box">
+          <div class="status-error">
+            <div class="error-label">✗ &nbsp;TX FAILED</div>
+            <div class="error-msg">${data.error}</div>
+          </div>
+        </div>`;
+    }
+  } catch {
+    statusDiv.innerHTML = `
+      <div class="status-box">
+        <div class="status-error">
+          <div class="error-label">✗ &nbsp;NETWORK ERROR</div>
+          <div class="error-msg">COULD NOT REACH THE SERVER.</div>
+        </div>
+      </div>`;
+  }
+
+  submitBtn.disabled = false;
+  document.getElementById('btnText').textContent = 'SEND TRANSACTION';
+});
+
+async function loadBalance() {
+  try {
+    const res = await fetch('/balance');
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('balance').textContent = parseFloat(data.balance).toFixed(4) + ' SOL';
+      document.getElementById('balance-sub').innerHTML = '<span ></span>&nbsp;UPDATED JUST NOW';
+    } else {
+      document.getElementById('balance').textContent = 'ERROR';
+      document.getElementById('balance-sub').textContent = 'FAILED TO LOAD BALANCE';
+    }
+  } catch {
+    document.getElementById('balance').textContent = '------';
+    document.getElementById('balance-sub').textContent = 'COULD NOT FETCH BALANCE';
+  }
+}
+
+loadBalance();
+
+const sendTab = document.getElementById('sendTab');
+const receiveTab = document.getElementById('receiveTab');
+const activityTab = document.getElementById('activityTab');
+
+const formCard = document.querySelector('.form-card');
+const receivePanel = document.getElementById('receivePanel');
+const activityPanel = document.getElementById('activityPanel');
+
+function setActiveTab(tab){
+
+  [sendTab, receiveTab, activityTab]
+    .forEach(t => t.classList.remove('active'));
+
+  tab.classList.add('active');
+
+  formCard.style.display = 'none';
+  receivePanel.style.display = 'none';
+  activityPanel.style.display = 'none';
+
+  if(tab === sendTab){
+    formCard.style.display = 'block';
+  }
+
+  if(tab === receiveTab){
+    receivePanel.style.display = 'block';
+  }
+
+  if(tab === activityTab){
+
+  activityPanel.style.display = 'block';
+
+  loadActivity();
+}
+}
+
+sendTab.addEventListener('click', () => setActiveTab(sendTab));
+receiveTab.addEventListener('click', () => setActiveTab(receiveTab));
+activityTab.addEventListener('click', () => setActiveTab(activityTab));
+
+/* MAX BUTTON */
+
+document.getElementById('maxBtn').addEventListener('click', () => {
+
+  const balanceText =
+    document.getElementById('balance').textContent;
+
+  // "4.2871 SOL" -> 4.2871
+  const balance =
+    parseFloat(balanceText.replace(' SOL', ''));
+
+  if (isNaN(balance)) return;
+
+  // keep some SOL for fees
+  let maxAmount = balance - 0.0001;
+
+  if (maxAmount < 0) {
+    maxAmount = 0;
+  }
+
+  amountInput.value = maxAmount.toFixed(4);
+
+  amountInput.dispatchEvent(
+    new Event('input')
+  );
+});
+
+/* COPY ADDRESS */
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+
+  const addr =
+    document.getElementById('walletAddress').textContent.trim();
+
+  await navigator.clipboard.writeText(addr);
+
+  const btn = document.getElementById('copyBtn');
+
+  btn.textContent = 'COPIED ✓';
+
+  setTimeout(() => {
+    btn.textContent = 'COPY ADDRESS';
+  }, 1500);
+});
+
+async function loadActivity(){
+
+  const activityList =
+    document.getElementById('activityList');
+
+  activityList.innerHTML = 'LOADING...';
+
+  try {
+
+    const res = await fetch('/activity');
+    const data = await res.json();
+
+    if(!data.success){
+
+      activityList.innerHTML = 'FAILED TO LOAD';
+      return;
+    }
+
+    if(data.activity.length === 0){
+
+      activityList.innerHTML = 'NO TRANSACTIONS';
+      return;
+    }
+
+    activityList.innerHTML = '';
+
+    data.activity.forEach(tx => {
+
+      const div = document.createElement('div');
+
+      div.className = 'activity-item';
+
+      div.innerHTML = `
+        <div>
+          <div class="activity-type ${tx.type}">
+            ${tx.type.toUpperCase()}
+          </div>
+
+          <div class="activity-address">
+            ${tx.signature.slice(0,4)}...
+            ${tx.signature.slice(-4)}
+          </div>
+        </div>
+
+        <div class="activity-amt ${
+          tx.type === 'receive'
+            ? 'plus'
+            : ''
+        }">
+          ${
+            tx.type === 'receive'
+              ? '+'
+              : '-'
+          }
+
+          ${tx.amount.toFixed(4)} SOL
+        </div>
+      `;
+
+      activityList.appendChild(div);
+    });
+
+  } catch {
+
+    activityList.innerHTML = 'NETWORK ERROR';
+  }
+}
+</script>
